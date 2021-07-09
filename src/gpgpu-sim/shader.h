@@ -1669,6 +1669,22 @@ struct shader_core_stats_pod {
   unsigned *single_issue_nums;
   unsigned *dual_issue_nums;
 
+  unsigned sysnet_n_empty_ibuffers;
+  unsigned sysnet_n_waiting_cycles;
+  unsigned sysnet_n_valid_insns;
+  unsigned sysnet_n_control_hazards;
+  unsigned sysnet_n_scoreboard_passes;
+  unsigned sysnet_n_scoreboard_fails;
+  unsigned sysnet_n_divergence_returns;
+
+  unsigned sysnet_n_memory_ops;
+  unsigned sysnet_n_sp_ops;
+  unsigned sysnet_n_int_ops;
+  unsigned sysnet_n_dp_ops;
+  unsigned sysnet_n_sfu_ops;
+  unsigned sysnet_n_tensor_core_ops;
+  unsigned sysnet_n_spec_ops;
+
   unsigned ctas_completed;
   // memory access classification
   int gpgpu_n_mem_read_local;
