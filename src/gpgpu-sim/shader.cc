@@ -705,6 +705,22 @@ void shader_core_stats::print(FILE *fout) const {
 
   m_outgoing_traffic_stats->print(fout);
   m_incoming_traffic_stats->print(fout);
+
+  fprintf(fout, "sysnet_n_empty_ibuffers = %d\n", sysnet_n_empty_ibuffers);
+  fprintf(fout, "sysnet_n_waiting_cycles = %d\n", sysnet_n_waiting_cycles);
+  fprintf(fout, "sysnet_n_valid_insns = %d\n", sysnet_n_valid_insns);
+  fprintf(fout, "sysnet_n_control_hazards = %d\n", sysnet_n_control_hazards);
+  fprintf(fout, "sysnet_n_scoreboard_passes = %d\n", sysnet_n_scoreboard_passes);
+  fprintf(fout, "sysnet_n_scoreboard_fails = %d\n", sysnet_n_scoreboard_fails);
+  fprintf(fout, "sysnet_n_divergence_returns = %d\n", sysnet_n_divergence_returns);
+
+  fprintf(fout, "sysnet_n_memory_ops = %d\n", sysnet_n_memory_ops);
+  fprintf(fout, "sysnet_n_sp_ops = %d\n", sysnet_n_sp_ops);
+  fprintf(fout, "sysnet_n_int_ops = %d\n", sysnet_n_int_ops);
+  fprintf(fout, "sysnet_n_dp_ops = %d\n", sysnet_n_dp_ops);
+  fprintf(fout, "sysnet_n_sfu_ops = %d\n", sysnet_n_sfu_ops);
+  fprintf(fout, "sysnet_n_tensor_core_ops = %d\n", sysnet_n_tensor_core_ops);
+  fprintf(fout, "sysnet_n_spec_ops = %d\n", sysnet_n_spec_ops);
 }
 
 void shader_core_stats::event_warp_issued(unsigned s_id, unsigned warp_id,
@@ -1158,16 +1174,20 @@ void scheduler_unit::cycle() {
                                                  // units (as in Maxwell and
                                                  // Pascal)
 
-    if (warp(warp_id).ibuffer_empty())
+    if (warp(warp_id).ibuffer_empty()) {
+      m_stats->sysnet_n_empty_ibuffers++;
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) fails as ibuffer_empty\n",
           (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+    }
 
-    if (warp(warp_id).waiting())
+    if (warp(warp_id).waiting()) {
+      m_stats->sysnet_n_waiting_cycles++;
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) fails as waiting for "
           "barrier\n",
           (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
+    }
 
     while (!warp(warp_id).waiting() && !warp(warp_id).ibuffer_empty() &&
            (checked < max_issue) && (checked <= issued) &&
@@ -1184,6 +1204,7 @@ void scheduler_unit::cycle() {
       bool warp_inst_issued = false;
       unsigned pc, rpc;
       m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
+      m_stats->sysnet_n_valid_insns++;
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) has valid instruction (%s)\n",
           (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id(),
@@ -1192,6 +1213,7 @@ void scheduler_unit::cycle() {
       if (pI) {
         assert(valid);
         if (pc != pI->pc) {
+          m_stats->sysnet_n_control_hazards++;
           SCHED_DPRINTF(
               "Warp (warp_id %u, dynamic_warp_id %u) control hazard "
               "instruction flush\n",
@@ -1202,6 +1224,7 @@ void scheduler_unit::cycle() {
         } else {
           valid_inst = true;
           if (!m_scoreboard->checkCollision(warp_id, pI)) {
+            m_stats->sysnet_n_scoreboard_passes++;
             SCHED_DPRINTF(
                 "Warp (warp_id %u, dynamic_warp_id %u) passes scoreboard\n",
                 (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
@@ -1220,6 +1243,7 @@ void scheduler_unit::cycle() {
                                       m_id) &&
                   (!diff_exec_units ||
                    previous_issued_inst_exec_type != exec_unit_type_t::MEM)) {
+                m_stats->sysnet_n_memory_ops++;
                 m_shader->issue_warp(*m_mem_out, pI, active_mask, warp_id,
                                      m_id);
                 issued++;
@@ -1293,6 +1317,7 @@ void scheduler_unit::cycle() {
                 }
 
                 if (execute_on_SP) {
+                  m_stats->sysnet_n_sp_ops++;
                   m_shader->issue_warp(*m_sp_out, pI, active_mask, warp_id,
                                        m_id);
                   issued++;
@@ -1300,6 +1325,7 @@ void scheduler_unit::cycle() {
                   warp_inst_issued = true;
                   previous_issued_inst_exec_type = exec_unit_type_t::SP;
                 } else if (execute_on_INT) {
+                  m_stats->sysnet_n_int_ops++;
                   m_shader->issue_warp(*m_int_out, pI, active_mask, warp_id,
                                        m_id);
                   issued++;
@@ -1312,6 +1338,7 @@ void scheduler_unit::cycle() {
                          !(diff_exec_units && previous_issued_inst_exec_type ==
                                                   exec_unit_type_t::DP)) {
                 if (dp_pipe_avail) {
+                  m_stats->sysnet_n_dp_ops++;
                   m_shader->issue_warp(*m_dp_out, pI, active_mask, warp_id,
                                        m_id);
                   issued++;
@@ -1327,6 +1354,7 @@ void scheduler_unit::cycle() {
                        !(diff_exec_units && previous_issued_inst_exec_type ==
                                                 exec_unit_type_t::SFU)) {
                 if (sfu_pipe_avail) {
+                  m_stats->sysnet_n_sfu_ops++;
                   m_shader->issue_warp(*m_sfu_out, pI, active_mask, warp_id,
                                        m_id);
                   issued++;
@@ -1338,6 +1366,7 @@ void scheduler_unit::cycle() {
                          !(diff_exec_units && previous_issued_inst_exec_type ==
                                                   exec_unit_type_t::TENSOR)) {
                 if (tensor_core_pipe_avail) {
+                  m_stats->sysnet_n_tensor_core_ops++;
                   m_shader->issue_warp(*m_tensor_core_out, pI, active_mask,
                                        warp_id, m_id);
                   issued++;
@@ -1359,6 +1388,7 @@ void scheduler_unit::cycle() {
                                            m_id);
 
                 if (spec_pipe_avail) {
+                  m_stats->sysnet_n_spec_ops++;
                   m_shader->issue_warp(*spec_reg_set, pI, active_mask, warp_id,
                                        m_id);
                   issued++;
@@ -1371,6 +1401,7 @@ void scheduler_unit::cycle() {
 
             }  // end of else
           } else {
+            m_stats->sysnet_n_scoreboard_fails++;
             SCHED_DPRINTF(
                 "Warp (warp_id %u, dynamic_warp_id %u) fails scoreboard\n",
                 (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
@@ -1378,6 +1409,7 @@ void scheduler_unit::cycle() {
         }
       } else if (valid) {
         // this case can happen after a return instruction in diverged warp
+        m_stats->sysnet_n_divergence_returns++;
         SCHED_DPRINTF(
             "Warp (warp_id %u, dynamic_warp_id %u) return from diverged warp "
             "flush\n",
