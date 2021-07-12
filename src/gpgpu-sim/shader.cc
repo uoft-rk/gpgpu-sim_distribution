@@ -706,8 +706,17 @@ void shader_core_stats::print(FILE *fout) const {
   m_outgoing_traffic_stats->print(fout);
   m_incoming_traffic_stats->print(fout);
 
-  fprintf(fout, "sysnet_n_empty_ibuffers = %d\n", sysnet_n_empty_ibuffers);
-  fprintf(fout, "sysnet_n_waiting_cycles = %d\n", sysnet_n_waiting_cycles);
+  fprintf(fout, "sysnet_n_warp_cycles = %lld\n", sysnet_n_warp_cycles);
+  fprintf(fout, "sysnet_n_empty_ibuffers = %lld\n", sysnet_n_empty_ibuffers);
+  fprintf(fout, "sysnet_n_waiting_cycles = %lld\n", sysnet_n_waiting_cycles);
+  fprintf(fout, "sysnet_waiting_init% = %d\n",
+          sysnet_waiting_cycles_distro[0] * 100 / sysnet_n_waiting_cycles);
+  fprintf(fout, "sysnet_waiting_barrier% = %d\n",
+          sysnet_waiting_cycles_distro[1] * 100 / sysnet_n_waiting_cycles);
+  fprintf(fout, "sysnet_waiting_mem_barrier% = %d\n",
+          sysnet_waiting_cycles_distro[2] * 100 / sysnet_n_waiting_cycles);
+  fprintf(fout, "sysnet_waiting_atomic% = %d\n",
+          sysnet_waiting_cycles_distro[3] * 100 / sysnet_n_waiting_cycles);
   fprintf(fout, "sysnet_n_valid_insns = %d\n", sysnet_n_valid_insns);
   fprintf(fout, "sysnet_n_control_hazards = %d\n", sysnet_n_control_hazards);
   fprintf(fout, "sysnet_n_scoreboard_passes = %d\n", sysnet_n_scoreboard_passes);
@@ -1173,6 +1182,7 @@ void scheduler_unit::cycle() {
                                                  // dual issue to diff execution
                                                  // units (as in Maxwell and
                                                  // Pascal)
+    m_stats->sysnet_n_warp_cycles++;
 
     if (warp(warp_id).ibuffer_empty()) {
       m_stats->sysnet_n_empty_ibuffers++;
@@ -1181,15 +1191,18 @@ void scheduler_unit::cycle() {
           (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
     }
 
-    if (warp(warp_id).waiting()) {
+    waiting_barrier_t waiting_status = warp(warp_id).waiting();
+
+    if (waiting_status) {
       m_stats->sysnet_n_waiting_cycles++;
+      m_stats->sysnet_waiting_cycles_distro[waiting_status - 1]++;
       SCHED_DPRINTF(
           "Warp (warp_id %u, dynamic_warp_id %u) fails as waiting for "
           "barrier\n",
           (*iter)->get_warp_id(), (*iter)->get_dynamic_warp_id());
     }
 
-    while (!warp(warp_id).waiting() && !warp(warp_id).ibuffer_empty() &&
+    while (!waiting_status && !warp(warp_id).ibuffer_empty() &&
            (checked < max_issue) && (checked <= issued) &&
            (issued < max_issue)) {
       const warp_inst_t *pI = warp(warp_id).ibuffer_next_inst();
@@ -3801,25 +3814,25 @@ bool shd_warp_t::hardware_done() const {
   return functional_done() && stores_done() && !inst_in_pipeline();
 }
 
-bool shd_warp_t::waiting() {
+waiting_barrier_t shd_warp_t::waiting() {
   if (functional_done()) {
     // waiting to be initialized with a kernel
-    return true;
+    return waiting_barrier_t::WAITING_INIT;
   } else if (m_shader->warp_waiting_at_barrier(m_warp_id)) {
     // waiting for other warps in CTA to reach barrier
-    return true;
+    return waiting_barrier_t::WAITING_BARRIER;
   } else if (m_shader->warp_waiting_at_mem_barrier(m_warp_id)) {
     // waiting for memory barrier
-    return true;
+    return waiting_barrier_t::WAITING_MEM_BARRIER;
   } else if (m_n_atomic > 0) {
     // waiting for atomic operation to complete at memory:
     // this stall is not required for accurate timing model, but rather we
     // stall here since if a call/return instruction occurs in the meantime
     // the functional execution of the atomic when it hits DRAM can cause
     // the wrong register to be read.
-    return true;
+    return waiting_barrier_t::WAITING_ATOMIC;
   }
-  return false;
+  return waiting_barrier_t::WAITING_NONE;
 }
 
 void shd_warp_t::print(FILE *fout) const {

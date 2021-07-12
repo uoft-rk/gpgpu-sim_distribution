@@ -83,6 +83,14 @@ enum exec_unit_type_t {
   SPECIALIZED = 7
 };
 
+enum waiting_barrier_t {
+  WAITING_NONE = 0,
+  WAITING_INIT = 1,
+  WAITING_BARRIER = 2,
+  WAITING_MEM_BARRIER = 3,
+  WAITING_ATOMIC = 4
+};
+
 class thread_ctx_t {
  public:
   unsigned m_cta_id;  // hardware CTA this thread belongs
@@ -141,7 +149,7 @@ class shd_warp_t {
   }
 
   bool functional_done() const;
-  bool waiting();  // not const due to membar
+  waiting_barrier_t waiting();  // not const due to membar
   bool hardware_done() const;
 
   bool done_exit() const { return m_done_exit; }
@@ -1669,9 +1677,11 @@ struct shader_core_stats_pod {
   unsigned *single_issue_nums;
   unsigned *dual_issue_nums;
 
-  unsigned sysnet_n_empty_ibuffers;
-  unsigned sysnet_n_waiting_cycles;
-  unsigned sysnet_n_valid_insns;
+  unsigned long long sysnet_n_warp_cycles;
+  unsigned long long sysnet_n_empty_ibuffers;
+  unsigned long long sysnet_n_waiting_cycles;
+  unsigned long long sysnet_waiting_cycles_distro[4];
+  unsigned long long sysnet_n_valid_insns;
   unsigned sysnet_n_control_hazards;
   unsigned sysnet_n_scoreboard_passes;
   unsigned sysnet_n_scoreboard_fails;
