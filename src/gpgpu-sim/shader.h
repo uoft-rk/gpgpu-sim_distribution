@@ -367,7 +367,7 @@ class scheduler_unit {  // this can be copied freely, so can be used in std
   // all the derived schedulers.  The scheduler's behaviour can be
   // modified by changing the contents of the m_next_cycle_prioritized_warps
   // list.
-  void cycle();
+  bool cyclerist();
 
   // These are some common ordering fucntions that the
   // higher order schedulers can take advantage of
@@ -1609,6 +1609,26 @@ class shader_core_config : public core_config {
   unsigned m_specialized_unit_num;
 };
 
+struct sysnet_stats_pod {
+  unsigned long long sysnet_n_warp_cycles;
+  unsigned long long sysnet_n_empty_ibuffers;
+  unsigned long long sysnet_n_waiting_cycles;
+  unsigned long long sysnet_waiting_cycles_distro[4];
+  unsigned long long sysnet_n_valid_insns;
+  unsigned sysnet_n_control_hazards;
+  unsigned sysnet_n_scoreboard_passes;
+  unsigned sysnet_n_scoreboard_fails;
+  unsigned sysnet_n_divergence_returns;
+
+  unsigned sysnet_n_memory_ops;
+  unsigned sysnet_n_sp_ops;
+  unsigned sysnet_n_int_ops;
+  unsigned sysnet_n_dp_ops;
+  unsigned sysnet_n_sfu_ops;
+  unsigned sysnet_n_tensor_core_ops;
+  unsigned sysnet_n_spec_ops;
+};
+
 struct shader_core_stats_pod {
   void *
       shader_core_stats_pod_start[0];  // DO NOT MOVE FROM THE TOP - spaceless
@@ -1677,23 +1697,7 @@ struct shader_core_stats_pod {
   unsigned *single_issue_nums;
   unsigned *dual_issue_nums;
 
-  unsigned long long sysnet_n_warp_cycles;
-  unsigned long long sysnet_n_empty_ibuffers;
-  unsigned long long sysnet_n_waiting_cycles;
-  unsigned long long sysnet_waiting_cycles_distro[4];
-  unsigned long long sysnet_n_valid_insns;
-  unsigned sysnet_n_control_hazards;
-  unsigned sysnet_n_scoreboard_passes;
-  unsigned sysnet_n_scoreboard_fails;
-  unsigned sysnet_n_divergence_returns;
-
-  unsigned sysnet_n_memory_ops;
-  unsigned sysnet_n_sp_ops;
-  unsigned sysnet_n_int_ops;
-  unsigned sysnet_n_dp_ops;
-  unsigned sysnet_n_sfu_ops;
-  unsigned sysnet_n_tensor_core_ops;
-  unsigned sysnet_n_spec_ops;
+  sysnet_stats_pod sysnet;
 
   unsigned ctas_completed;
   // memory access classification
