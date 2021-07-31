@@ -133,16 +133,16 @@
 #if (CUDART_VERSION < 8000)
 #include "__cudaFatFormat.h"
 #endif
-#include "gpgpu_context.h"
-#include "cuda_api_object.h"
-#include "../src/gpgpu-sim/gpu-sim.h"
-#include "../src/cuda-sim/ptx_loader.h"
+#include "../src/abstract_hardware_model.h"
 #include "../src/cuda-sim/cuda-sim.h"
 #include "../src/cuda-sim/ptx_ir.h"
+#include "../src/cuda-sim/ptx_loader.h"
 #include "../src/cuda-sim/ptx_parser.h"
+#include "../src/gpgpu-sim/gpu-sim.h"
 #include "../src/gpgpusim_entrypoint.h"
 #include "../src/stream_manager.h"
-#include "../src/abstract_hardware_model.h"
+#include "cuda_api_object.h"
+#include "gpgpu_context.h"
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -3018,12 +3018,20 @@ void cuda_runtime_api::extract_ptx_files_using_cuobjdump(CUctx_st *context) {
     while (std::getline(infile, line)) {
       // int pos = line.find(std::string(get_app_binary_name(app_binary)));
       const char *ptx_file = line.c_str();
-      printf("Extracting specific PTX file named %s \n", ptx_file);
-      snprintf(command, 1000, "$CUDA_INSTALL_PATH/bin/cuobjdump -xptx %s %s",
-               ptx_file, app_binary.c_str());
+      /**
+       * SYSNET: Check if file already exists, and if so, don't update. This
+       * also allows to manually edit PTX files and not have them be
+       * overwritten.
+       */
+      snprintf(command, 1000, "test -f %s", ptx_file);
       if (system(command) != 0) {
-        printf("ERROR: command: %s failed \n", command);
-        exit(0);
+        printf("Extracting specific PTX file named %s \n", ptx_file);
+        snprintf(command, 1000, "$CUDA_INSTALL_PATH/bin/cuobjdump -xptx %s %s",
+                 ptx_file, app_binary.c_str());
+        if (system(command) != 0) {
+          printf("ERROR: command: %s failed \n", command);
+          exit(0);
+        }
       }
       context->no_of_ptx++;
     }
