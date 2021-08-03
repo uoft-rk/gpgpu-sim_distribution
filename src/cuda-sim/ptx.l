@@ -153,6 +153,7 @@ vadd    TC; yylval->int_value = VADD_OP; return OPCODE;
 vmad    TC; yylval->int_value = VMAD_OP; return OPCODE;
 vmax    TC; yylval->int_value = VMAX_OP; return OPCODE;
 vmin    TC; yylval->int_value = VMIN_OP; return OPCODE;
+voxrtrv TC; yylval->int_value = VOXRTRV_OP; return OPCODE;
 voxstor TC; yylval->int_value = VOXSTOR_OP; return OPCODE;
 vset    TC; yylval->int_value = VSET_OP; return OPCODE;
 vshl    TC; yylval->int_value = VSHL_OP; return OPCODE;
