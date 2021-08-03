@@ -6357,7 +6357,7 @@ void vmax_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
 void vmin_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
   video_mem_instruction(pI, thread, VMIN);
 }
-constexpr std::size_t sysnet_voxel_cache_size = 3;
+
 struct sysnet_voxel_cache_elem {
   int x, y, z;
   void *p;
@@ -6365,27 +6365,28 @@ struct sysnet_voxel_cache_elem {
     return x == e.x && y == e.y && z == e.z;
   }
 };
-static std::list<sysnet_voxel_cache_elem> sysnet_voxel_cache;
-static void *sysnet_voxel_cache_retrieve(int x, int y, int z) {
-  std::cerr << "--> sysnet_voxel_cache_retrieve(" << x << ", " << y << ", " << z
-            << ")" << std::endl;
 
+constexpr std::size_t sysnet_voxel_cache_size_bytes = 1 << 22;  // 4 MiB
+constexpr std::size_t sysnet_voxel_cache_size =
+    sysnet_voxel_cache_size_bytes / sizeof(sysnet_voxel_cache_elem);
+
+static std::list<sysnet_voxel_cache_elem> sysnet_voxel_cache;
+
+static void *sysnet_voxel_cache_retrieve(int x, int y, int z) {
   void *p = nullptr;
 
   sysnet_voxel_cache_elem comparitor = {x, y, z, nullptr};
   for (const sysnet_voxel_cache_elem &e : sysnet_voxel_cache)
     if (e == comparitor) p = e.p;
 
-  sysnet_voxel_cache.remove(comparitor);
-
-  sysnet_voxel_cache.push_back(sysnet_voxel_cache_elem({x, y, z, p}));
+  if (p != nullptr) {
+    sysnet_voxel_cache.remove(comparitor);
+    sysnet_voxel_cache.push_back(sysnet_voxel_cache_elem({x, y, z, p}));
+  }
 
   return p;
 }
 static void sysnet_voxel_cache_store(int x, int y, int z, void *p) {
-  std::cerr << "--> sysnet_voxel_cache_store(" << x << ", " << y << ", " << z
-            << ", " << p << ")" << std::endl;
-
   sysnet_voxel_cache.remove(sysnet_voxel_cache_elem({x, y, z, p}));
 
   while (sysnet_voxel_cache.size() >= sysnet_voxel_cache_size)
@@ -6393,6 +6394,7 @@ static void sysnet_voxel_cache_store(int x, int y, int z, void *p) {
 
   sysnet_voxel_cache.push_back(sysnet_voxel_cache_elem({x, y, z, p}));
 }
+
 void voxrtrv_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
   const operand_info &dst = pI->dst();
 
@@ -6424,25 +6426,22 @@ void voxstor_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
   const operand_info &src1 = pI->src1();
   const operand_info &src2 = pI->src2();
   const operand_info &src3 = pI->src3();
-  // const operand_info &src4 = pI->src4();
+  const operand_info &src4 = pI->src4();
 
   unsigned i_type = pI->get_type();
   ptx_reg_t data = thread->get_operand_value(dst, dst, i_type, thread, 1);
   ptx_reg_t src1_data = thread->get_operand_value(src1, dst, i_type, thread, 1);
   ptx_reg_t src2_data = thread->get_operand_value(src2, dst, i_type, thread, 1);
   ptx_reg_t src3_data = thread->get_operand_value(src3, dst, i_type, thread, 1);
-  // ptx_reg_t src4_data = thread->get_operand_value(src4, dst, i_type, thread,
-  // 1);
+  ptx_reg_t src4_data = thread->get_operand_value(src4, dst, i_type, thread, 1);
 
   int sysnet_x = src1_data.u64;
   int sysnet_y = src2_data.u64;
   int sysnet_z = src3_data.u64;
 
-  void *sysnet_p = (void *)data.u64;
+  void *sysnet_p = (void *)src4_data.u64;
 
-  sysnet_voxel_cache_store(sysnet_x, sysnet_y, sysnet_z, (void *)128);
-
-  thread->set_operand_value(dst, data, i_type, thread, pI);
+  sysnet_voxel_cache_store(sysnet_x, sysnet_y, sysnet_z, sysnet_p);
 }
 void vset_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
   inst_not_implemented(pI);
