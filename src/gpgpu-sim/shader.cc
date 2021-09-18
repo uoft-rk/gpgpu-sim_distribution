@@ -3411,7 +3411,11 @@ void shader_core_config::set_pipeline_latency() {
   max_tensor_core_latency = tensor_latency;
 }
 
+namespace sysnet { short scctx_cycles = 0; }
 void shader_core_ctx::cycle() {
+  if (!--sysnet::scctx_cycles)
+    printf(".");
+
   if (!isactive() && get_not_completed() == 0) return;
 
   m_stats->shader_cycles[m_sid]++;
