@@ -1610,6 +1610,8 @@ class shader_core_config : public core_config {
 };
 
 struct sysnet_stats_pod {
+  static long long unsigned int cache_a;
+  static long long unsigned int cache_h;
   unsigned long long sysnet_n_warp_cycles;
   unsigned long long sysnet_n_empty_ibuffers;
   unsigned long long sysnet_n_waiting_cycles;

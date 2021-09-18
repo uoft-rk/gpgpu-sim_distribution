@@ -63,6 +63,9 @@ mem_fetch *shader_core_mem_fetch_allocator::alloc(
 }
 /////////////////////////////////////////////////////////////////////////////
 
+long long unsigned int sysnet_stats_pod::cache_a = 0;
+long long unsigned int sysnet_stats_pod::cache_h = 0;
+
 std::list<unsigned> shader_core_ctx::get_regs_written(const inst_t &fvt) const {
   std::list<unsigned> result;
   for (unsigned op = 0; op < MAX_REG_OPERANDS; op++) {
@@ -726,6 +729,9 @@ void shader_core_stats::print(FILE *fout) const {
   fprintf(fout, "sysnet_n_sfu_ops = %d\n", sysnet.sysnet_n_sfu_ops);
   fprintf(fout, "sysnet_n_tensor_core_ops = %d\n", sysnet.sysnet_n_tensor_core_ops);
   fprintf(fout, "sysnet_n_spec_ops = %d\n", sysnet.sysnet_n_spec_ops);
+
+  fprintf(fout, "sysnet_n_voxel_cache_accesses = %lld\n", sysnet_stats_pod::cache_a);
+  fprintf(fout, "sysnet_n_voxel_cache_hits = %lld\n", sysnet_stats_pod::cache_h);
 }
 
 void shader_core_stats::event_warp_issued(unsigned s_id, unsigned warp_id,

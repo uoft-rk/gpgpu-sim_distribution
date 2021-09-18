@@ -6375,6 +6375,8 @@ static std::list<sysnet_voxel_cache_elem> sysnet_voxel_cache;
 static void *sysnet_voxel_cache_retrieve(int x, int y, int z) {
   void *p = nullptr;
 
+  sysnet_stats_pod::cache_a++;
+
   sysnet_voxel_cache_elem comparitor = {x, y, z, nullptr};
   for (const sysnet_voxel_cache_elem &e : sysnet_voxel_cache)
     if (e == comparitor) p = e.p;
@@ -6382,6 +6384,8 @@ static void *sysnet_voxel_cache_retrieve(int x, int y, int z) {
   if (p != nullptr) {
     sysnet_voxel_cache.remove(comparitor);
     sysnet_voxel_cache.push_back(sysnet_voxel_cache_elem({x, y, z, p}));
+
+    sysnet_stats_pod::cache_h++;
   }
 
   return p;
